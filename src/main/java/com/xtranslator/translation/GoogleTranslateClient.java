@@ -5,6 +5,7 @@ import com.google.gson.JsonObject;
 import com.google.gson.JsonParser;
 import com.xtranslator.XTranslatorMod;
 
+import javax.net.ssl.SSLContext;
 import java.net.URI;
 import java.net.URLEncoder;
 import java.net.http.HttpClient;
@@ -69,14 +70,31 @@ public class GoogleTranslateClient {
     private final String targetLanguage;
 
     public GoogleTranslateClient(String sourceLanguage, String targetLanguage) {
-        this.httpClient = HttpClient.newBuilder()
+        SSLContext sslContext;
+        try {
+            sslContext = SSLContext.getInstance("TLSv1.2");
+            sslContext.init(null, null, null);
+        } catch (Exception e) {
+            try {
+                sslContext = SSLContext.getDefault();
+            } catch (Exception ex) {
+                sslContext = null;
+            }
+        }
+
+        HttpClient.Builder builder = HttpClient.newBuilder()
                 .connectTimeout(Duration.ofSeconds(TIMEOUT_SECONDS))
                 .followRedirects(HttpClient.Redirect.NORMAL)
-                .build();
+                .version(HttpClient.Version.HTTP_1_1);
+        if (sslContext != null) {
+            builder.sslContext(sslContext);
+        }
+        this.httpClient = builder.build();
+
         this.sourceLanguage = normalizeLangCode(sourceLanguage);
         this.targetLanguage = normalizeLangCode(targetLanguage);
 
-        XTranslatorMod.LOGGER.info("Initialized Translation client: {} -> {}", this.sourceLanguage, this.targetLanguage);
+        XTranslatorMod.LOGGER.info("Initialized Translation client (TLS 1.2): {} -> {}", this.sourceLanguage, this.targetLanguage);
     }
 
     private static String normalizeLangCode(String lang) {
@@ -384,7 +402,7 @@ public class GoogleTranslateClient {
                 } catch (Exception e) {
                     results[idx] = null;
                 } finally {
-                    if (onItemDone != null) onItemDone.accept(1);
+                    if (onItemDone != null && results[idx] != null) onItemDone.accept(1);
                 }
             }
         }

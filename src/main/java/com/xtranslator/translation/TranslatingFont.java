@@ -78,7 +78,13 @@ public class TranslatingFont extends Font {
             TranslationService service = manager.getTranslationService();
             if (service == null) return null;
             Map<String, String> cache = service.getTranslationCache();
-            return cache.get(text);
+            String res = cache.get(text);
+            if (res != null) return res;
+            String trimmed = text.trim();
+            if (!trimmed.isEmpty() && !trimmed.equals(text)) {
+                return cache.get(trimmed);
+            }
+            return null;
         } catch (Throwable ignored) {
             return null;
         }
