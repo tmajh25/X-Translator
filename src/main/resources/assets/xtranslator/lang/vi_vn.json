@@ -1,0 +1,44 @@
+{
+  "xtranslator.name": "XTranslator",
+  "xtranslator.description": "Mod tự động dịch tất cả mod và FTB Quests sang tiếng Việt theo thời gian thực",
+
+  "xtranslator.chat.prefix": "§b[XTranslator] §f",
+  "xtranslator.chat.indexing": "Đã lập chỉ mục §e%s§f chuỗi cho §a%s§f. Đã bật tính năng Dịch trực tiếp!",
+  "xtranslator.chat.screen_clean": "Toàn bộ chữ trên giao diện này đã có bản dịch.",
+  "xtranslator.chat.screen_busy": "Đang dịch giao diện này, vui lòng đợi 1–2 giây...",
+  "xtranslator.chat.screen_start": "Đang dịch giao diện §e%s§f: §6%s§f đoạn mới...",
+  "xtranslator.chat.screen_done": "✔ Đã dịch xong giao diện: §a%s§f đoạn mới!",
+  "xtranslator.chat.start": "Bắt đầu dịch §e%s§f ➔ §a%s§f: tổng cộng §6%s§f dòng...",
+  "xtranslator.chat.complete": "✔ Dịch hoàn tất! Đã nạp §a%s/%s§f dòng sang §a%s§f vào game.",
+  "xtranslator.chat.cancelled": "Tiến trình dịch đã bị hủy bởi người chơi.",
+  "xtranslator.chat.no_screen": "Chưa có menu nào được mở. Hãy mở menu mod lên và nhấn phím §aV§f để dịch.",
+  "xtranslator.chat.milestone": "Tiến độ %s (➔ %s): %s/%s (%s%%)",
+
+  "xtranslator.hud.translating": "Đang dịch",
+  "xtranslator.hud.complete": "✔ Hoàn tất dịch: %s/%s",
+  "xtranslator.hud.cancelled": "Đã hủy tiến trình!",
+  "xtranslator.hud.clean": "Giao diện đã có đủ bản dịch",
+
+  "xtranslator.cmd.help.header": "§6====== [ XTranslator - Danh Sách Lệnh ] ======",
+  "xtranslator.cmd.help.screen": "§e/xtrans screen §7(phím V) - Quét và dịch menu/màn hình đang mở",
+  "xtranslator.cmd.help.mod": "§e/xtrans mod <tên_mod> §7- Dịch riêng một mod chỉ định",
+  "xtranslator.cmd.help.full": "§e/xtrans full §7- Quét và dịch toàn bộ các mod trong máy",
+  "xtranslator.cmd.help.status": "§e/xtrans status §7- Xem trạng thái hệ thống dịch",
+  "xtranslator.cmd.help.clear": "§e/xtrans clear [all|tên_mod] §7- Xóa cache để dịch lại từ đầu",
+  "xtranslator.cmd.help.cancel": "§e/xtrans cancel §7- Dừng/Hủy tiến trình dịch",
+  "xtranslator.cmd.help.edit": "§e/xtrans edit <key> <nội_dung> §7- Sửa bản dịch trực tiếp trong game",
+
+  "xtranslator.cmd.status.header": "§6====== [ XTranslator - Trạng Thái Hệ Thống ] ======",
+  "xtranslator.cmd.status.idle": "§fTrạng thái: §a✔ Sẵn sàng (Idle)",
+  "xtranslator.cmd.status.busy": "§fTrạng thái: §e⏳ Đang dịch...",
+  "xtranslator.cmd.status.target": "§fNgôn ngữ đích: §a%s §7(%s)",
+  "xtranslator.cmd.status.cached": "§fĐã lưu trong Cache: §6%s §fchuỗi",
+  "xtranslator.cmd.status.indexed": "§fChuỗi mod đã lập chỉ mục: §e%s §fchuỗi",
+  "xtranslator.cmd.status.last_menu": "§fDịch màn hình: §aĐang bật §7(Menu gần nhất: §e%s§7)",
+
+  "xtranslator.cmd.cancel.none": "Không có tiến trình dịch nào đang chạy.",
+  "xtranslator.cmd.cancel.success": "Đã hủy tiến trình dịch thành công.",
+  "xtranslator.cmd.edit.syntax": "Cú pháp: /xtrans edit <mã_key> <bản_dịch_mới>",
+  "xtranslator.cmd.edit.success": "Đã cập nhật bản dịch thành công cho: %s",
+  "xtranslator.cmd.clear.success": "Đã xóa cache bản dịch thành công."
+}

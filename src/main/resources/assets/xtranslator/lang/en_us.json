@@ -1,0 +1,44 @@
+{
+  "xtranslator.name": "XTranslator",
+  "xtranslator.description": "Next-gen real-time automatic translator for mods and quests",
+
+  "xtranslator.chat.prefix": "§b[XTranslator] §f",
+  "xtranslator.chat.indexing": "Indexed §e%s§f keys for §a%s§f. Real-time screen translation active!",
+  "xtranslator.chat.screen_clean": "Everything on this screen is already translated.",
+  "xtranslator.chat.screen_busy": "Translating this screen, please wait...",
+  "xtranslator.chat.screen_start": "Translating screen §e%s§f: §6%s§f new strings...",
+  "xtranslator.chat.screen_done": "✔ Screen translated: §a%s§f new strings!",
+  "xtranslator.chat.start": "Translating §e%s§f ➔ §a%s§f: total §6%s§f strings...",
+  "xtranslator.chat.complete": "✔ Translation complete! Loaded §a%s/%s§f strings into §a%s§f.",
+  "xtranslator.chat.cancelled": "Translation process was cancelled.",
+  "xtranslator.chat.no_screen": "No menu is currently open. Open a mod menu and press §aV§f to translate.",
+  "xtranslator.chat.milestone": "Progress for %s (➔ %s): %s/%s (%s%%)",
+
+  "xtranslator.hud.translating": "Translating",
+  "xtranslator.hud.complete": "✔ Translation complete: %s/%s",
+  "xtranslator.hud.cancelled": "Translation cancelled!",
+  "xtranslator.hud.clean": "All texts already translated",
+
+  "xtranslator.cmd.help.header": "§6====== [ XTranslator - Command Guide ] ======",
+  "xtranslator.cmd.help.screen": "§e/xtrans screen §7(or Key V) - Translate currently opened menu",
+  "xtranslator.cmd.help.mod": "§e/xtrans mod <modid> §7- Translate a specific mod",
+  "xtranslator.cmd.help.full": "§e/xtrans full §7- Batch translate all loaded mods",
+  "xtranslator.cmd.help.status": "§e/xtrans status §7- View current translation system status",
+  "xtranslator.cmd.help.clear": "§e/xtrans clear [all|modid] §7- Clear translation cache",
+  "xtranslator.cmd.help.cancel": "§e/xtrans cancel §7- Cancel active translation process",
+  "xtranslator.cmd.help.edit": "§e/xtrans edit <key> <text> §7- In-game translation override",
+  
+  "xtranslator.cmd.status.header": "§6====== [ XTranslator - Status ] ======",
+  "xtranslator.cmd.status.idle": "§fStatus: §a✔ Ready (Idle)",
+  "xtranslator.cmd.status.busy": "§fStatus: §e⏳ Translating...",
+  "xtranslator.cmd.status.target": "§fTarget Language: §a%s §7(%s)",
+  "xtranslator.cmd.status.cached": "§fCached Translations: §6%s §fstrings",
+  "xtranslator.cmd.status.indexed": "§fIndexed Mod Keys: §e%s §fkeys",
+  "xtranslator.cmd.status.last_menu": "§fScreen Translation: §aActive §7(Last menu: §e%s§7)",
+
+  "xtranslator.cmd.cancel.none": "No translation task is currently running.",
+  "xtranslator.cmd.cancel.success": "Translation cancelled successfully.",
+  "xtranslator.cmd.edit.syntax": "Syntax: /xtrans edit <key> <new_text>",
+  "xtranslator.cmd.edit.success": "Updated translation for: %s",
+  "xtranslator.cmd.clear.success": "Cleared translation cache successfully."
+}

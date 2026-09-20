@@ -1,70 +1,81 @@
-# Auto-Translator Mod
+<p align="center">
+  <img src="xtranslator_logo.jpg" alt="XTranslator Logo" width="180"/>
+</p>
 
-Automatically translates all items, text, and quests from English mods to any language using AI translators (DeepL or Google Translate).
+# XTranslator
 
-## Description
+Mod tự động dịch thuật thời gian thực cho Minecraft NeoForge 1.21. Can thiệp trực tiếp vào Font Engine và Language System, hiển thị bản dịch tiếng Việt ngay trên giao diện mà không cần reload (`F3 + T`).
 
-Auto-Translator scans all loaded mods and FTB quests during Minecraft startup or when changing language and automatically detects missing translations. The mod supports two AI translators:
+---
 
-## Control Commands
+## Tính năng chính
 
-The mod provides commands for full control over translations:
+- **Dịch trực tiếp trên màn hình**: Nhận diện và dịch GUI, bảng kỹ năng (Tensura, Iron's Spells...), FTB Quests, sách hướng dẫn, tooltip tức thì khi mở menu hoặc rê chuột.
+- **Bảo vệ định dạng (`FormatProtector`)**: Giữ nguyên toàn bộ mã màu (`§a`, `§c`...) và biến định dạng Java (`%s`, `%d`, `{0}`).
+- **Phím tắt nhanh**: Nhấn **V** khi đang mở bất kỳ giao diện nào để quét và dịch toàn bộ nội dung của màn hình đó.
+- **Động cơ kép**: Tự động chuyển đổi giữa Google Translate và MyMemory API khi bị giới hạn tần suất (rate-limit).
+- **Chế độ On-Demand & Full**:
+  - `ON_DEMAND` *(Mặc định)*: Chỉ dịch những gì hiển thị trên màn hình, tối ưu hiệu năng, không giật lag.
+  - `FULL`: Quét và dịch toàn bộ chuỗi ngôn ngữ của modpack vào Resource Pack.
+- **Quản lý in-game**: Chỉnh sửa trực tiếp bản dịch (`/xtrans edit`) và quản lý bộ nhớ đệm cache trong game.
 
-### Basic Commands
-- `/autotranslator status` - Show current status (whether mods are being translated, quests enabled/disabled)
-- `/autotranslator reload` - Restart translation process
-- `/autotranslator cancel` - Cancel current translation process
-- `/autotranslator help` - Show help for all commands
+---
 
-### Translation Management
-- `/autotranslator enable` - Enable all translations (mods + quests)
-- `/autotranslator disable` - Disable all translations (mods + quests)
+## Phím tắt và Câu lệnh
 
-### Separate Control
-- `/autotranslator enable mods` - Enable only mod translations
-- `/autotranslator disable mods` - Disable only mod translations
-- `/autotranslator enable quests` - Check quest translations status
-- `/autotranslator disable quests` - Disable only quest translations
+Tiền tố hỗ trợ: `/xtrans` hoặc `/xtranslator`.
 
-**Note**: After enabling/disabling mod translations, press F3+T to apply changes.
+| Lệnh / Phím tắt | Chức năng | Ví dụ |
+| :--- | :--- | :--- |
+| **Phím V** | Quét và dịch toàn bộ giao diện đang mở | Nhấn **V** trong menu kỹ năng |
+| `/xtrans screen` | Tương đương phím V | `/xtrans screen` |
+| `/xtrans mod <tên_mod>` | Dịch toàn bộ chuỗi của 1 mod (hỗ trợ Tab) | `/xtrans mod tensura` |
+| `/xtrans match <từ_khóa>` | Dịch các mod có tên chứa từ khóa | `/xtrans match create` |
+| `/xtrans full` | Quét và dịch toàn bộ các mod trong máy | `/xtrans full` |
+| `/xtrans list [lọc]` | Danh sách mod chưa có tiếng Việt | `/xtrans list` |
+| `/xtrans edit <key> <text>` | Sửa nhanh bản dịch của một khóa | `/xtrans edit item.tensura.core Lõi` |
+| `/xtrans status` | Xem trạng thái và tiến trình dịch | `/xtrans status` |
+| `/xtrans cancel` | Hủy tiến trình dịch hiện tại | `/xtrans cancel` |
+| `/xtrans clear [modid/all]` | Xóa cache bản dịch | `/xtrans clear tensura` |
+| `/xtrans help` | Xem hướng dẫn câu lệnh | `/xtrans help` |
 
-## Configuration
+---
 
-The configuration file is created automatically in `config/autotranslator-client.toml`:
+## Cấu hình
+
+File cấu hình: `config/xtranslator-client.toml`
 
 ```toml
-[AutoTranslator Configuration]
-    # Enable automatic translation
-    enabled = true
-    # Automatically activate the generated resource pack
-    autoActivateResourcePack = true
-    # Delay between translation batch requests (in milliseconds)
-    translationDelayMs = 0
-
-[Translation Engine]
-    # Choose translation engine: GOOGLE_TRANSLATE or DEEPL
-    engine = "GOOGLE_TRANSLATE"
-    # DeepL API Key (get free at https://www.deepl.com/pro-api)
-    # Only needed if engine is set to DEEPL
-    deeplApiKey = ""
+[client]
+    enabled = true                  # Bật/tắt tự động dịch
+    autoActivateResourcePack = true # Tự kích hoạt Resource Pack
+    translationDelayMs = 0          # Độ trễ giữa các lượt dịch (ms)
+    sourceLanguage = "auto"         # Ngôn ngữ nguồn (mặc định: tự nhận diện)
+    targetLanguage = "auto"         # Ngôn ngữ đích (mặc định: theo ngôn ngữ Minecraft)
+    mode = "ON_DEMAND"              # Chế độ: 'ON_DEMAND' hoặc 'FULL'
 ```
 
-**Important**: Translation language is no longer configured in settings! The mod automatically uses the language from Minecraft settings. Just change the language in game settings, and the mod will translate everything to the selected language.
+---
 
-## How It Works
+## Cài đặt
 
-1. **Language Detection**: The mod automatically gets the language from Minecraft settings (no configuration required)
-2. **Mod Scanning**: Scans all language files of all mods
-3. **FTB Quests Scanning**: Checks quest files in `config/ftbquests/quests/lang/`
-4. **Missing Translation Detection**: Compares `en_us.json` and target language
-5. **Translation**: Uses DeepL or Google Translate to translate missing strings
-6. **Progress Display**: Shows progress in chat every 5 seconds
-7. **Resource Pack Generation**: Creates a resource pack with all mod translations
-8. **Quest Saving**: Creates a file with quest translations
-9. **Activation**: Automatically activates the resource pack
+1. Yêu cầu **Minecraft 1.21** chạy **NeoForge** (khuyến nghị `21.0.167` trở lên).
+2. Đặt file `xtranslator-1.0.0.jar` vào thư mục `.minecraft/mods/`.
+3. Vào game, chọn ngôn ngữ **Tiếng Việt** trong cài đặt Minecraft.
+4. Bản dịch được tự động lưu vào Resource Pack: `.minecraft/resourcepacks/XTranslator-Pack/`.
 
-**Instant Translation**: When changing language in Minecraft settings, the mod automatically starts without restarting the game!
+### Biên dịch từ mã nguồn (JDK 21)
 
-## License
+```bash
+git clone https://github.com/Pocky-l/AutoTranslator.git
+cd AutoTranslator
+./gradlew build
+```
 
-MIT License
+File `.jar` sau khi build nằm tại `build/libs/`.
+
+---
+
+## Giấy phép
+
+Phát hành theo giấy phép [MIT License](LICENSE). Dựa trên ý tưởng ban đầu của AutoTranslator (Pocky-l).
