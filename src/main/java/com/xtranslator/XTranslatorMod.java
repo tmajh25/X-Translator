@@ -26,6 +26,15 @@ public class XTranslatorMod {
     public static final String MODID = "xtranslator";
     public static final Logger LOGGER = LogUtils.getLogger();
 
+    static {
+        // Prefer IPv4 to avoid IPv6 captcha blocks on Google Translate
+        try {
+            System.setProperty("java.net.preferIPv4Stack", "true");
+            System.setProperty("java.net.preferIPv6Addresses", "false");
+        } catch (Throwable ignored) {
+        }
+    }
+
     public XTranslatorMod(IEventBus modEventBus, ModContainer modContainer) {
         // Register configuration
         modContainer.registerConfig(Type.CLIENT, ModConfig.SPEC);
