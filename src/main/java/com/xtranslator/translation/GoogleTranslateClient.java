@@ -29,6 +29,41 @@ public class GoogleTranslateClient {
     private static final String MYMEMORY_API_URL = "https://api.mymemory.translated.net/get";
     private static final int TIMEOUT_SECONDS = 6;
 
+    private static volatile long GLOBAL_COOLDOWN_UNTIL = 0;
+    private static final Object RATE_LOCK = new Object();
+    private static long lastRequestTime = 0;
+    private static final long MIN_REQUEST_INTERVAL_MS = 250;
+
+    public static boolean isInCooldown() {
+        return System.currentTimeMillis() < GLOBAL_COOLDOWN_UNTIL;
+    }
+
+    public static long getRemainingCooldownSeconds() {
+        long remaining = (GLOBAL_COOLDOWN_UNTIL - System.currentTimeMillis()) / 1000;
+        return Math.max(0, remaining);
+    }
+
+    public static void triggerCooldown(long durationMs, String reason) {
+        long newUntil = System.currentTimeMillis() + durationMs;
+        if (newUntil > GLOBAL_COOLDOWN_UNTIL) {
+            GLOBAL_COOLDOWN_UNTIL = newUntil;
+            XTranslatorMod.LOGGER.warn("Translation cooldown triggered: {} (Paused for {}s to prevent API bans)", reason, durationMs / 1000);
+        }
+    }
+
+    private static void enforceRateLimit() {
+        synchronized (RATE_LOCK) {
+            long now = System.currentTimeMillis();
+            long elapsed = now - lastRequestTime;
+            if (elapsed < MIN_REQUEST_INTERVAL_MS) {
+                try {
+                    Thread.sleep(MIN_REQUEST_INTERVAL_MS - elapsed);
+                } catch (InterruptedException ignored) {}
+            }
+            lastRequestTime = System.currentTimeMillis();
+        }
+    }
+
     private final HttpClient httpClient;
     private final String sourceLanguage;
     private final String targetLanguage;
@@ -62,6 +97,11 @@ public class GoogleTranslateClient {
             return text;
         }
 
+        if (isInCooldown()) {
+            XTranslatorMod.LOGGER.debug("Skipping translation for '{}': API in cooldown ({}s left)", text, getRemainingCooldownSeconds());
+            return null;
+        }
+
         // 1. Protect Minecraft format codes and placeholders
         FormatProtector.ProtectedResult protectedResult = FormatProtector.protect(text);
         String toTranslate = protectedResult.getProtectedText();
@@ -71,6 +111,9 @@ public class GoogleTranslateClient {
             // 2. Try Google Translate first (gtx client)
             translated = translateWithGoogle(toTranslate);
         } catch (Exception e) {
+            if (isInCooldown()) {
+                return null;
+            }
             XTranslatorMod.LOGGER.warn("Google Translate failed ({}), trying MyMemory", e.getMessage());
             try {
                 // 3. Fallback to MyMemory API
@@ -91,11 +134,17 @@ public class GoogleTranslateClient {
 
     private String translateWithGoogle(String text) throws Exception {
         String encodedText = URLEncoder.encode(text, StandardCharsets.UTF_8);
-        try {
-            return requestGoogle(encodedText, "gtx");
-        } catch (Exception e) {
-            return requestGoogle(encodedText, "dict-chrome-ex");
+        Exception lastException = null;
+        // Try gtx client first, then dict-chrome-ex as fallback
+        for (String clientId : new String[]{"gtx", "dict-chrome-ex"}) {
+            try {
+                return requestGoogle(encodedText, clientId);
+            } catch (Exception e) {
+                lastException = e;
+                XTranslatorMod.LOGGER.debug("Google Translate client '{}' failed: {}", clientId, e.getMessage());
+            }
         }
+        throw lastException != null ? lastException : new Exception("All Google Translate clients failed");
     }
 
     private static final String BATCH_DELIMITER = "\n⟦DIV⟧\n";
@@ -118,16 +167,13 @@ public class GoogleTranslateClient {
                 .timeout(Duration.ofSeconds(TIMEOUT_SECONDS))
                 .build();
 
+        enforceRateLimit();
         HttpResponse<String> response = httpClient.send(request, HttpResponse.BodyHandlers.ofString());
 
+        // Handle rate limiting with cooldown
         if (response.statusCode() == 429) {
-            Thread.sleep(600); // Back off and retry once
-            HttpResponse<String> retry = httpClient.send(request, HttpResponse.BodyHandlers.ofString());
-            if (retry.statusCode() == 200 && !retry.body().contains("<HTML>")) {
-                response = retry;
-            } else {
-                throw new Exception("Google Translate HTTP 429");
-            }
+            triggerCooldown(90_000, "Google Translate HTTP 429 (Rate Limited)");
+            throw new Exception("Google Translate HTTP 429 (Rate Limited) — cooldown activated for 90s");
         }
 
         if (response.statusCode() != 200) {
@@ -141,7 +187,12 @@ public class GoogleTranslateClient {
                         .GET()
                         .timeout(Duration.ofSeconds(TIMEOUT_SECONDS))
                         .build();
+                enforceRateLimit();
                 HttpResponse<String> getResponse = httpClient.send(getRequest, HttpResponse.BodyHandlers.ofString());
+                if (getResponse.statusCode() == 429) {
+                    triggerCooldown(90_000, "Google Translate HTTP 429 (Rate Limited)");
+                    throw new Exception("Google Translate HTTP 429 (Rate Limited) — cooldown activated for 90s");
+                }
                 if (getResponse.statusCode() == 200 && !getResponse.body().contains("<HTML>")) {
                     response = getResponse;
                 } else {
@@ -153,22 +204,37 @@ public class GoogleTranslateClient {
         }
 
         String body = response.body();
+        if (body == null || body.isBlank()) {
+            throw new Exception("Google Translate returned empty response");
+        }
         if (body.contains("<HTML>") || body.contains("<html>") || body.contains("Sorry...")) {
+            triggerCooldown(90_000, "Google Translate Captcha/HTML challenge");
             throw new Exception("Google Translate returned HTML/Captcha challenge");
         }
 
-        JsonArray rootArray = JsonParser.parseString(body).getAsJsonArray();
-        JsonArray translationsArray = rootArray.get(0).getAsJsonArray();
-
-        StringBuilder translatedText = new StringBuilder();
-        for (int i = 0; i < translationsArray.size(); i++) {
-            JsonArray translationPart = translationsArray.get(i).getAsJsonArray();
-            if (!translationPart.isEmpty() && !translationPart.get(0).isJsonNull()) {
-                translatedText.append(translationPart.get(0).getAsString());
+        try {
+            JsonArray rootArray = JsonParser.parseString(body).getAsJsonArray();
+            if (rootArray.isEmpty() || rootArray.get(0).isJsonNull()) {
+                throw new Exception("Google Translate returned null translation array");
             }
-        }
+            JsonArray translationsArray = rootArray.get(0).getAsJsonArray();
 
-        return translatedText.toString();
+            StringBuilder translatedText = new StringBuilder();
+            for (int i = 0; i < translationsArray.size(); i++) {
+                JsonArray translationPart = translationsArray.get(i).getAsJsonArray();
+                if (!translationPart.isEmpty() && !translationPart.get(0).isJsonNull()) {
+                    translatedText.append(translationPart.get(0).getAsString());
+                }
+            }
+
+            String result = translatedText.toString();
+            if (result.isBlank()) {
+                throw new Exception("Google Translate returned blank translation");
+            }
+            return result;
+        } catch (com.google.gson.JsonSyntaxException e) {
+            throw new Exception("Google Translate returned invalid JSON: " + e.getMessage());
+        }
     }
 
     private String translateWithMyMemory(String text) throws Exception {
@@ -185,10 +251,12 @@ public class GoogleTranslateClient {
                 .timeout(Duration.ofSeconds(TIMEOUT_SECONDS))
                 .build();
 
+        enforceRateLimit();
         HttpResponse<String> response = httpClient.send(request, HttpResponse.BodyHandlers.ofString());
 
         if (response.statusCode() == 429) {
-            throw new Exception("MyMemory rate limit exceeded");
+            triggerCooldown(90_000, "MyMemory rate limit exceeded");
+            throw new Exception("MyMemory rate limit exceeded — cooldown activated for 90s");
         }
 
         if (response.statusCode() != 200) {
@@ -201,7 +269,8 @@ public class GoogleTranslateClient {
         if (responseStatus == 200) {
             String val = json.getAsJsonObject("responseData").get("translatedText").getAsString();
             if (val.contains("MYMEMORY WARNING")) {
-                throw new Exception("MyMemory daily limit exceeded");
+                triggerCooldown(120_000, "MyMemory daily limit reached");
+                throw new Exception("MyMemory daily limit exceeded — cooldown activated for 120s");
             }
             return val;
         }
@@ -219,6 +288,11 @@ public class GoogleTranslateClient {
 
         int size = texts.size();
         String[] results = new String[size];
+
+        if (isInCooldown()) {
+            XTranslatorMod.LOGGER.warn("Skipping batch translation: API in cooldown ({}s remaining)", getRemainingCooldownSeconds());
+            return Arrays.asList(results);
+        }
 
         // 1. Group texts into chunks (up to 20 items or ~2000 chars) for single HTTP request translation
         List<List<Integer>> chunks = new ArrayList<>();
@@ -240,7 +314,7 @@ public class GoogleTranslateClient {
             chunks.add(currentChunk);
         }
 
-        int threads = Math.min(chunks.size(), 4);
+        int threads = Math.min(chunks.size(), 2);
         ExecutorService pool = Executors.newFixedThreadPool(threads);
         try {
             List<CompletableFuture<Void>> futures = new ArrayList<>(chunks.size());

@@ -88,11 +88,11 @@ public class XTranslationManager {
 
         this.resourcePackGenerator = new ResourcePackGenerator(gameDirectory, targetLanguage);
 
-        // Auto-save cache on game exit
+        // Auto-save cache synchronously on game exit (async save may not complete during shutdown)
         Runtime.getRuntime().addShutdownHook(new Thread(() -> {
             try {
                 if (translationService != null) {
-                    translationService.saveCache();
+                    translationService.saveCacheSync();
                 }
             } catch (Throwable ignored) {
             }
@@ -165,6 +165,11 @@ public class XTranslationManager {
     public void startTranslation(boolean forceFull) {
         if (!ModConfig.ENABLED.get()) {
             XTranslatorMod.LOGGER.info("Auto-translation is disabled in config");
+            return;
+        }
+
+        if (!forceFull && !ModConfig.AUTO_TRANSLATE_BACKGROUND.get()) {
+            XTranslatorMod.LOGGER.info("Auto background translation is disabled in config, skipping startup scan");
             return;
         }
 

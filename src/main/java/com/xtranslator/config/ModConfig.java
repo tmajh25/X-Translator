@@ -7,6 +7,7 @@ public class ModConfig {
     public static final ModConfigSpec SPEC;
 
     public static final ModConfigSpec.BooleanValue ENABLED;
+    public static final ModConfigSpec.BooleanValue AUTO_TRANSLATE_BACKGROUND;
     public static final ModConfigSpec.BooleanValue AUTO_ACTIVATE_RESOURCEPACK;
     public static final ModConfigSpec.IntValue TRANSLATION_DELAY_MS;
     public static final ModConfigSpec.ConfigValue<String> SOURCE_LANGUAGE;
@@ -17,8 +18,14 @@ public class ModConfig {
         BUILDER.push("XTranslator Configuration");
 
         ENABLED = BUILDER
-                .comment("Enable automatic translation")
+                .comment("Enable XTranslator mod")
                 .define("enabled", true);
+
+        AUTO_TRANSLATE_BACKGROUND = BUILDER
+                .comment("Automatically translate text in the background while playing or browsing items.",
+                        "Default: false (Recommended: prevents HTTP 429 rate limit bans).",
+                        "When false, translations only happen when you use commands (/xtrans mod, /xtrans screen) or press 'V'.")
+                .define("autoTranslateBackground", false);
 
         AUTO_ACTIVATE_RESOURCEPACK = BUILDER
                 .comment("Automatically activate the generated resource pack")
@@ -26,8 +33,8 @@ public class ModConfig {
 
         TRANSLATION_DELAY_MS = BUILDER
                 .comment("Delay between translation batch requests (in milliseconds)",
-                        "Default: 0ms. Uses Google Translate API with MyMemory fallback.")
-                .defineInRange("translationDelayMs", 0, 0, 5000);
+                        "Default: 250ms. Prevents rate limiting by translation APIs.")
+                .defineInRange("translationDelayMs", 250, 0, 5000);
 
         SOURCE_LANGUAGE = BUILDER
                 .comment("Source language of the mods to translate from (e.g., 'auto', 'en_us', 'zh_cn', 'ja_jp').",

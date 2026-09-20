@@ -55,11 +55,16 @@ public class TranslationService {
 
         try {
             String translated = client.translate(value);
-            translationCache.put(key, translated);
-            return translated;
+            // ConcurrentHashMap does NOT allow null values — must check before put!
+            if (translated != null && !translated.isBlank()) {
+                translationCache.put(key, translated);
+                return translated;
+            }
+            // Translation returned null/blank — do NOT cache, let it retry later
+            return null;
         } catch (Exception e) {
             XTranslatorMod.LOGGER.error("Failed to translate '{}': {}", key, e.getMessage());
-            return value; // Return original on error
+            return null; // Return null so callers know it failed
         }
     }
 
@@ -256,9 +261,11 @@ public class TranslationService {
                     while (needsSave) {
                         needsSave = false;
                         Thread.sleep(600); // Debounce bursts
-                        String json = GSON.toJson(translationCache);
+                        // Snapshot the map to avoid ConcurrentModificationException during serialization
+                        Map<String, String> snapshot = new HashMap<>(translationCache);
+                        String json = GSON.toJson(snapshot);
                         Files.writeString(cacheFile, json);
-                        XTranslatorMod.LOGGER.info("Async saved {} translations to cache", translationCache.size());
+                        XTranslatorMod.LOGGER.info("Async saved {} translations to cache", snapshot.size());
                     }
                 } catch (Exception e) {
                     XTranslatorMod.LOGGER.error("Failed to async save cache file", e);

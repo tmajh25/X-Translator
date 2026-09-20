@@ -5,6 +5,7 @@ import com.mojang.brigadier.arguments.StringArgumentType;
 import com.mojang.brigadier.context.CommandContext;
 import com.xtranslator.XTranslationManager;
 import com.xtranslator.chat.TranslationProgress;
+import com.xtranslator.config.ModConfig;
 import com.xtranslator.translation.ScreenPriorityTranslator;
 import net.minecraft.client.Minecraft;
 import net.minecraft.commands.CommandSourceStack;
@@ -98,6 +99,10 @@ public class TranslationCommands {
                             })
                             .executes(TranslationCommands::clearMod))
                         .executes(TranslationCommands::clearAll))
+                    .then(Commands.literal("auto")
+                        .then(Commands.literal("on").executes(ctx -> setAuto(ctx, true)))
+                        .then(Commands.literal("off").executes(ctx -> setAuto(ctx, false)))
+                        .executes(TranslationCommands::toggleAuto))
                     .then(Commands.literal("help")
                         .executes(TranslationCommands::help))
                     .executes(TranslationCommands::help)
@@ -264,12 +269,30 @@ public class TranslationCommands {
         return 1;
     }
 
+    private static int toggleAuto(CommandContext<CommandSourceStack> context) {
+        boolean current = ModConfig.AUTO_TRANSLATE_BACKGROUND.get();
+        return setAuto(context, !current);
+    }
+
+    private static int setAuto(CommandContext<CommandSourceStack> context, boolean enable) {
+        ModConfig.AUTO_TRANSLATE_BACKGROUND.set(enable);
+        Minecraft.getInstance().execute(() -> {
+            if (enable) {
+                TranslationProgress.sendChatMessage(Component.literal("§a[XTranslator] §fĐã §aBẬT §ftự động dịch ngầm (Background Auto-Translate)."));
+            } else {
+                TranslationProgress.sendChatMessage(Component.literal("§e[XTranslator] §fĐã §cTẮT §ftự động dịch ngầm. Chỉ dịch khi dùng lệnh (/xtrans mod) hoặc phím V."));
+            }
+        });
+        return 1;
+    }
+
     private static int help(CommandContext<CommandSourceStack> context) {
         context.getSource().sendSuccess(() -> Component.literal("")
                 .append(Component.translatable("xtranslator.cmd.help.header"))
                 .append("\n").append(Component.translatable("xtranslator.cmd.help.screen"))
                 .append("\n").append(Component.translatable("xtranslator.cmd.help.mod"))
                 .append("\n").append(Component.translatable("xtranslator.cmd.help.full"))
+                .append("\n").append("§e/xtrans auto <on|off> §7- Bật/tắt tự động dịch ngầm khi rê chuột")
                 .append("\n").append(Component.translatable("xtranslator.cmd.help.status"))
                 .append("\n").append(Component.translatable("xtranslator.cmd.help.clear"))
                 .append("\n").append(Component.translatable("xtranslator.cmd.help.cancel"))

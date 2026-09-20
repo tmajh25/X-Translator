@@ -3,6 +3,7 @@ package com.xtranslator.translation;
 import com.xtranslator.XTranslationManager;
 import com.xtranslator.XTranslatorMod;
 import com.xtranslator.chat.TranslationProgress;
+import com.xtranslator.config.ModConfig;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.components.AbstractSelectionList;
 import net.minecraft.client.gui.components.AbstractWidget;
@@ -73,16 +74,30 @@ public class ScreenPriorityTranslator {
             if (mc.font != null && !(mc.font instanceof TranslatingFont)) {
                 TranslatingFont tf = TranslatingFont.wrap(mc.font);
                 if (tf != null) {
+                    boolean injected = false;
+                    // Method 1: Try standard reflection first (safer, future-proof)
                     try {
-                        java.lang.reflect.Field unsafeField = sun.misc.Unsafe.class.getDeclaredField("theUnsafe");
-                        unsafeField.setAccessible(true);
-                        sun.misc.Unsafe unsafe = (sun.misc.Unsafe) unsafeField.get(null);
                         java.lang.reflect.Field fontField = Minecraft.class.getDeclaredField("font");
-                        long offset = unsafe.objectFieldOffset(fontField);
-                        unsafe.putObject(mc, offset, tf);
-                        XTranslatorMod.LOGGER.info("XTranslator TranslatingFont successfully injected into Minecraft.font!");
-                    } catch (Throwable t) {
-                        XTranslatorMod.LOGGER.debug("Could not inject Minecraft.font via Unsafe: {}", t.getMessage());
+                        fontField.setAccessible(true);
+                        fontField.set(mc, tf);
+                        injected = true;
+                        XTranslatorMod.LOGGER.info("XTranslator TranslatingFont injected via reflection!");
+                    } catch (Throwable reflectErr) {
+                        XTranslatorMod.LOGGER.debug("Reflection font injection failed: {}", reflectErr.getMessage());
+                    }
+                    // Method 2: Fallback to Unsafe if reflection fails (e.g. final field)
+                    if (!injected) {
+                        try {
+                            java.lang.reflect.Field unsafeField = sun.misc.Unsafe.class.getDeclaredField("theUnsafe");
+                            unsafeField.setAccessible(true);
+                            sun.misc.Unsafe unsafe = (sun.misc.Unsafe) unsafeField.get(null);
+                            java.lang.reflect.Field fontField = Minecraft.class.getDeclaredField("font");
+                            long offset = unsafe.objectFieldOffset(fontField);
+                            unsafe.putObject(mc, offset, tf);
+                            XTranslatorMod.LOGGER.info("XTranslator TranslatingFont injected via Unsafe fallback!");
+                        } catch (Throwable t) {
+                            XTranslatorMod.LOGGER.warn("Could not inject TranslatingFont (all methods failed): {}", t.getMessage());
+                        }
                     }
                 }
             }
@@ -691,7 +706,8 @@ public class ScreenPriorityTranslator {
                     } else {
                         tooltip.set(i, Component.literal(cache.get(key)).withStyle(comp.getStyle()));
                     }
-                } else if (!PENDING_KEYS.contains(key) && !isTooltipFailedRecently(key)) {
+                } else if (ModConfig.ENABLED.get() && ModConfig.AUTO_TRANSLATE_BACKGROUND.get() && !GoogleTranslateClient.isInCooldown()
+                        && !PENDING_KEYS.contains(key) && !isTooltipFailedRecently(key)) {
                     PENDING_KEYS.add(key);
                     String rawText = manager.getSourceTextFor(key);
                     if (rawText == null || rawText.isBlank() || rawText.equals(key)) {
@@ -720,7 +736,8 @@ public class ScreenPriorityTranslator {
                 if (text != null && text.length() > 1 && !text.isBlank() && text.length() < 250 && !shouldSkipText(text)) {
                     if (cache.containsKey(text)) {
                         tooltip.set(i, Component.literal(cache.get(text)).withStyle(comp.getStyle()));
-                    } else if (!PENDING_KEYS.contains(text) && !isTooltipFailedRecently(text)) {
+                    } else if (ModConfig.ENABLED.get() && ModConfig.AUTO_TRANSLATE_BACKGROUND.get() && !GoogleTranslateClient.isInCooldown()
+                            && !PENDING_KEYS.contains(text) && !isTooltipFailedRecently(text)) {
                         PENDING_KEYS.add(text);
                         PRIORITY_EXECUTOR.submit(() -> {
                             try {

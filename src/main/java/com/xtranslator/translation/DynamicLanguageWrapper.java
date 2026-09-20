@@ -2,6 +2,7 @@ package com.xtranslator.translation;
 
 import com.xtranslator.XTranslationManager;
 import com.xtranslator.XTranslatorMod;
+import com.xtranslator.config.ModConfig;
 import net.minecraft.locale.Language;
 import net.minecraft.network.chat.FormattedText;
 import net.minecraft.util.FormattedCharSequence;
@@ -101,7 +102,12 @@ public class DynamicLanguageWrapper extends Language {
             }
         }
 
-        // 2. Check if this key should be translated dynamically
+        // 2. Check if auto background translation is enabled and not in API cooldown
+        if (!ModConfig.ENABLED.get() || !ModConfig.AUTO_TRANSLATE_BACKGROUND.get() || GoogleTranslateClient.isInCooldown()) {
+            return defaultVal;
+        }
+
+        // 3. Check if this key should be translated dynamically
         if (shouldTranslateKey(manager, key, defaultVal)) {
             if (!PENDING_KEYS.contains(key) && !isFailedRecently(key)) {
                 PENDING_KEYS.add(key);
@@ -123,15 +129,21 @@ public class DynamicLanguageWrapper extends Language {
                     EXECUTOR.submit(() -> {
                         try {
                             String translated = service.translate(key, textToTranslate);
-                            if (translated != null && !translated.isBlank() && !translated.equals(textToTranslate)) {
-                                if (targetLang.startsWith("vi") && LanguageHelper.hasChineseCharacters(translated)) {
-                                    FAILED_KEYS.put(key, System.currentTimeMillis());
-                                    return;
-                                }
-                                manager.addPriorityTranslation(key, translated);
-                            } else {
+                            if (translated == null || translated.isBlank()) {
+                                // Translation API failed — mark as failed, will retry after cooldown
                                 FAILED_KEYS.put(key, System.currentTimeMillis());
+                                return;
                             }
+                            if (translated.equals(textToTranslate) || translated.equals(key)) {
+                                // Translation returned same text — API returned source text unchanged
+                                FAILED_KEYS.put(key, System.currentTimeMillis());
+                                return;
+                            }
+                            if (targetLang.startsWith("vi") && LanguageHelper.hasChineseCharacters(translated)) {
+                                FAILED_KEYS.put(key, System.currentTimeMillis());
+                                return;
+                            }
+                            manager.addPriorityTranslation(key, translated);
                         } catch (Exception ex) {
                             FAILED_KEYS.put(key, System.currentTimeMillis());
                             XTranslatorMod.LOGGER.debug("Dynamic translation failed for {}: {}", key, ex.getMessage());
