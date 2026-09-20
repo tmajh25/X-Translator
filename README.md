@@ -67,8 +67,8 @@ File cấu hình: `config/xtranslator-client.toml`
 ### Biên dịch từ mã nguồn (JDK 21)
 
 ```bash
-git clone https://github.com/Pocky-l/AutoTranslator.git
-cd AutoTranslator
+git clone https://github.com/tmajh25/X-Translator.git
+cd X-Translator
 ./gradlew build
 ```
 
