@@ -57,16 +57,30 @@ public class ScreenPriorityTranslator {
 
     private static final Set<String> PENDING_KEYS = ConcurrentHashMap.newKeySet();
     private static long lastScreenScan = 0;
+    private static int tickCounter = 0;
 
     public static volatile Screen lastOpenedScreen = null;
     public static volatile String lastOpenedModId = null;
+
+    public static void clearState() {
+        PENDING_KEYS.clear();
+        TranslatingFont.RENDERED_TEXTS.clear();
+    }
 
     @SubscribeEvent
     public static void onClientTick(ClientTickEvent.Post event) {
         Minecraft mc = Minecraft.getInstance();
         if (mc != null) {
+            // Periodically check if language changed in Minecraft settings
+            tickCounter++;
+            if (tickCounter % 20 == 0) {
+                XTranslationManager.checkAndUpdateLanguage();
+            }
+
             net.minecraft.locale.Language current = net.minecraft.locale.Language.getInstance();
             if (!(current instanceof DynamicLanguageWrapper)) {
+                // When Language instance changes, also check language update immediately
+                XTranslationManager.checkAndUpdateLanguage();
                 net.minecraft.locale.Language.inject(new DynamicLanguageWrapper(current));
                 XTranslatorMod.LOGGER.info("XTranslator DynamicLanguageWrapper successfully injected into Minecraft Language!");
             }
@@ -310,6 +324,16 @@ public class ScreenPriorityTranslator {
             return;
         }
 
+        if (manager == null) return;
+
+        if (manager.isSameLanguage(manager.getSourceLanguage(), manager.getTargetLanguage())) {
+            if (force) {
+                TranslationProgress.sendActionBar(Component.translatable("xtranslator.chat.prefix")
+                        .append(Component.literal(" §eNgôn ngữ hiện tại (" + manager.getTargetLanguage() + ") trùng với ngôn ngữ gốc, không cần dịch.")));
+            }
+            return;
+        }
+
         TranslationService service = manager.getTranslationService();
         if (service == null) return;
 
@@ -398,6 +422,14 @@ public class ScreenPriorityTranslator {
             IS_SCREEN_TRANSLATING.set(false);
         }
 
+        if (GoogleTranslateClient.isInCooldown()) {
+            if (force) {
+                long remaining = GoogleTranslateClient.getRemainingCooldownSeconds();
+                TranslationProgress.sendActionBar(Component.literal("§c[XTranslator] §eAPI đang tạm nghỉ (" + remaining + "s). Vui lòng thử lại sau!"));
+            }
+            return;
+        }
+
         if (!IS_SCREEN_TRANSLATING.compareAndSet(false, true)) {
             if (force) {
                 TranslationProgress.sendActionBar(Component.translatable("xtranslator.chat.prefix")
@@ -447,8 +479,7 @@ public class ScreenPriorityTranslator {
                 if (force) {
                     if (translated.isEmpty()) {
                         TranslationProgress.reset();
-                        TranslationProgress.sendActionBar(Component.literal("§e[XTranslator] ")
-                                .append(Component.translatable("xtranslator.chat.screen_busy")));
+                        TranslationProgress.sendActionBar(Component.literal("§c[XTranslator] §fKhông có bản dịch mới nào được tạo. Thử lại sau vài giây!"));
                     } else {
                         TranslationProgress.completeTranslation();
                         TranslationProgress.sendActionBar(Component.translatable("xtranslator.chat.prefix")

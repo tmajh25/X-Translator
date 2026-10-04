@@ -11,9 +11,9 @@ import java.util.regex.Pattern;
  */
 public class FormatProtector {
 
-    // Matches Minecraft formatting codes, Java string formats, and braced placeholders
+    // Matches newlines, Minecraft formatting codes, Java string formats, and braced placeholders
     private static final Pattern PROTECTED_PATTERN = Pattern.compile(
-        "(§[0-9a-fk-orA-FK-OR]|&[0-9a-fk-orA-FK-OR]|%(?:[0-9]+\\$)?[\\-#+ 0,(<]?[0-9]*(?:\\.[0-9]+)?[a-zA-Z%]|\\{[a-zA-Z0-9_]+\\}|<[^>]+>)"
+        "(\\\\n|\\r?\\n|§[0-9a-fk-orA-FK-OR]|&[0-9a-fk-orA-FK-OR]|%(?:[0-9]+\\$)?[\\-#+ 0,(<]?[0-9]*(?:\\.[0-9]+)?[a-zA-Z%]|\\{[a-zA-Z0-9_]+\\}|<[^>]+>)"
     );
 
     public static class ProtectedResult {

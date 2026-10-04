@@ -91,6 +91,7 @@ public class XTranslatorMod {
                     // Initialize and start translation manager
                     // This will run on every resource reload (including language changes)
                     XTranslationManager manager = XTranslationManager.getInstance(gameDirectory);
+                    XTranslationManager.checkAndUpdateLanguage();
                     manager.startTranslation();
 
                     LOGGER.info("Translation process initiated after resource reload");

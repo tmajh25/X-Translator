@@ -33,7 +33,7 @@ public class GoogleTranslateClient {
     private static volatile long GLOBAL_COOLDOWN_UNTIL = 0;
     private static final Object RATE_LOCK = new Object();
     private static long lastRequestTime = 0;
-    private static final long MIN_REQUEST_INTERVAL_MS = 250;
+    private static final long MIN_REQUEST_INTERVAL_MS = 350;
 
     public static boolean isInCooldown() {
         return System.currentTimeMillis() < GLOBAL_COOLDOWN_UNTIL;
@@ -97,10 +97,16 @@ public class GoogleTranslateClient {
         XTranslatorMod.LOGGER.info("Initialized Translation client (TLS 1.2): {} -> {}", this.sourceLanguage, this.targetLanguage);
     }
 
-    private static String normalizeLangCode(String lang) {
+    public static String normalizeLangCode(String lang) {
         if (lang == null || lang.isEmpty() || lang.equalsIgnoreCase("auto")) return "auto";
-        // Extract 2-letter ISO code if provided as "vi_vn" -> "vi"
-        String[] parts = lang.toLowerCase().split("[_-]");
+        String lower = lang.toLowerCase().trim().replace('-', '_');
+        if (lower.equals("zh_cn") || lower.equals("zh_hans")) return "zh-CN";
+        if (lower.equals("zh_tw") || lower.equals("zh_hk") || lower.equals("zh_hant")) return "zh-TW";
+        if (lower.startsWith("pt_br")) return "pt";
+        if (lower.startsWith("fil")) return "tl";
+        if (lower.startsWith("he") || lower.startsWith("iw")) return "iw";
+        if (lower.startsWith("jv")) return "jw";
+        String[] parts = lower.split("_");
         return parts[0];
     }
 
@@ -129,15 +135,12 @@ public class GoogleTranslateClient {
             // 2. Try Google Translate first (gtx client)
             translated = translateWithGoogle(toTranslate);
         } catch (Exception e) {
-            if (isInCooldown()) {
-                return null;
-            }
             XTranslatorMod.LOGGER.warn("Google Translate failed ({}), trying MyMemory", e.getMessage());
             try {
                 // 3. Fallback to MyMemory API
                 translated = translateWithMyMemory(toTranslate);
             } catch (Exception ex) {
-                XTranslatorMod.LOGGER.error("Both Google and MyMemory translation failed for '{}': {}", text, ex.getMessage());
+                XTranslatorMod.LOGGER.debug("Both Google and MyMemory translation failed for '{}': {}", text, ex.getMessage());
                 return null; // Return null so caller knows it was not translated!
             }
         }
@@ -152,17 +155,12 @@ public class GoogleTranslateClient {
 
     private String translateWithGoogle(String text) throws Exception {
         String encodedText = URLEncoder.encode(text, StandardCharsets.UTF_8);
-        Exception lastException = null;
-        // Try gtx client first, then dict-chrome-ex as fallback
-        for (String clientId : new String[]{"gtx", "dict-chrome-ex"}) {
-            try {
-                return requestGoogle(encodedText, clientId);
-            } catch (Exception e) {
-                lastException = e;
-                XTranslatorMod.LOGGER.debug("Google Translate client '{}' failed: {}", clientId, e.getMessage());
-            }
+        try {
+            return requestGoogle(encodedText, "gtx");
+        } catch (Exception e) {
+            XTranslatorMod.LOGGER.debug("Google GTX failed ({}), trying clients5.google.com...", e.getMessage());
+            return requestClients5(encodedText);
         }
-        throw lastException != null ? lastException : new Exception("All Google Translate clients failed");
     }
 
     private static final String BATCH_DELIMITER = "\n⟦DIV⟧\n";
@@ -178,7 +176,7 @@ public class GoogleTranslateClient {
 
         HttpRequest request = HttpRequest.newBuilder()
                 .uri(URI.create(url))
-                .header("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/128.0.0.0 Safari/537.36")
+                .header("User-Agent", "GoogleTranslate/6.28.0.05.421483610 (Linux; U; Android 10; Pixel 4 XL)")
                 .header("Content-Type", "application/x-www-form-urlencoded; charset=UTF-8")
                 .header("Accept", "*/*")
                 .POST(HttpRequest.BodyPublishers.ofString("q=" + encodedText, StandardCharsets.UTF_8))
@@ -190,8 +188,8 @@ public class GoogleTranslateClient {
 
         // Handle rate limiting with cooldown
         if (response.statusCode() == 429) {
-            triggerCooldown(90_000, "Google Translate HTTP 429 (Rate Limited)");
-            throw new Exception("Google Translate HTTP 429 (Rate Limited) — cooldown activated for 90s");
+            triggerCooldown(5_000, "Google Translate HTTP 429 (Rate Limited)");
+            throw new Exception("Google Translate HTTP 429 (Rate Limited) — cooldown 5s");
         }
 
         if (response.statusCode() != 200) {
@@ -200,7 +198,7 @@ public class GoogleTranslateClient {
                 String getUrl = url + "&q=" + encodedText;
                 HttpRequest getRequest = HttpRequest.newBuilder()
                         .uri(URI.create(getUrl))
-                        .header("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/128.0.0.0 Safari/537.36")
+                        .header("User-Agent", "GoogleTranslate/6.28.0.05.421483610 (Linux; U; Android 10; Pixel 4 XL)")
                         .header("Accept", "*/*")
                         .GET()
                         .timeout(Duration.ofSeconds(TIMEOUT_SECONDS))
@@ -208,8 +206,8 @@ public class GoogleTranslateClient {
                 enforceRateLimit();
                 HttpResponse<String> getResponse = httpClient.send(getRequest, HttpResponse.BodyHandlers.ofString());
                 if (getResponse.statusCode() == 429) {
-                    triggerCooldown(90_000, "Google Translate HTTP 429 (Rate Limited)");
-                    throw new Exception("Google Translate HTTP 429 (Rate Limited) — cooldown activated for 90s");
+                    triggerCooldown(5_000, "Google Translate HTTP 429 (Rate Limited)");
+                    throw new Exception("Google Translate HTTP 429 (Rate Limited) — cooldown 5s");
                 }
                 if (getResponse.statusCode() == 200 && !getResponse.body().contains("<HTML>")) {
                     response = getResponse;
@@ -226,7 +224,7 @@ public class GoogleTranslateClient {
             throw new Exception("Google Translate returned empty response");
         }
         if (body.contains("<HTML>") || body.contains("<html>") || body.contains("Sorry...")) {
-            triggerCooldown(90_000, "Google Translate Captcha/HTML challenge");
+            triggerCooldown(5_000, "Google Translate Captcha/HTML challenge");
             throw new Exception("Google Translate returned HTML/Captcha challenge");
         }
 
@@ -255,6 +253,49 @@ public class GoogleTranslateClient {
         }
     }
 
+    private String requestClients5(String encodedText) throws Exception {
+        String url = String.format(
+            "https://clients5.google.com/translate_a/t?client=dict-chrome-ex&sl=%s&tl=%s",
+            sourceLanguage,
+            targetLanguage
+        );
+
+        HttpRequest request = HttpRequest.newBuilder()
+                .uri(URI.create(url))
+                .header("User-Agent", "GoogleTranslate/6.28.0.05.421483610 (Linux; U; Android 10; Pixel 4 XL)")
+                .header("Content-Type", "application/x-www-form-urlencoded; charset=UTF-8")
+                .header("Accept", "*/*")
+                .POST(HttpRequest.BodyPublishers.ofString("q=" + encodedText, StandardCharsets.UTF_8))
+                .timeout(Duration.ofSeconds(TIMEOUT_SECONDS))
+                .build();
+
+        enforceRateLimit();
+        HttpResponse<String> response = httpClient.send(request, HttpResponse.BodyHandlers.ofString());
+
+        if (response.statusCode() == 429) {
+            triggerCooldown(5_000, "Google Clients5 HTTP 429 (Rate Limited)");
+            throw new Exception("Google Clients5 HTTP 429 (Rate Limited) — cooldown 5s");
+        }
+
+        if (response.statusCode() != 200) {
+            throw new Exception("Google Clients5 HTTP " + response.statusCode());
+        }
+
+        String body = response.body();
+        if (body == null || body.isBlank() || body.contains("<HTML>")) {
+            throw new Exception("Google Clients5 returned empty or HTML challenge");
+        }
+
+        JsonArray root = JsonParser.parseString(body).getAsJsonArray();
+        if (!root.isEmpty() && root.get(0).isJsonArray()) {
+            JsonArray first = root.get(0).getAsJsonArray();
+            if (!first.isEmpty() && !first.get(0).isJsonNull()) {
+                return first.get(0).getAsString();
+            }
+        }
+        throw new Exception("Google Clients5 invalid response structure: " + body);
+    }
+
     private String translateWithMyMemory(String text) throws Exception {
         String encodedText = URLEncoder.encode(text, StandardCharsets.UTF_8);
         String src = "auto".equalsIgnoreCase(sourceLanguage) ? "autodetect" : sourceLanguage;
@@ -273,8 +314,8 @@ public class GoogleTranslateClient {
         HttpResponse<String> response = httpClient.send(request, HttpResponse.BodyHandlers.ofString());
 
         if (response.statusCode() == 429) {
-            triggerCooldown(90_000, "MyMemory rate limit exceeded");
-            throw new Exception("MyMemory rate limit exceeded — cooldown activated for 90s");
+            triggerCooldown(10_000, "MyMemory rate limit exceeded");
+            throw new Exception("MyMemory rate limit exceeded — cooldown 10s");
         }
 
         if (response.statusCode() != 200) {
@@ -287,8 +328,8 @@ public class GoogleTranslateClient {
         if (responseStatus == 200) {
             String val = json.getAsJsonObject("responseData").get("translatedText").getAsString();
             if (val.contains("MYMEMORY WARNING")) {
-                triggerCooldown(120_000, "MyMemory daily limit reached");
-                throw new Exception("MyMemory daily limit exceeded — cooldown activated for 120s");
+                triggerCooldown(10_000, "MyMemory daily limit reached");
+                throw new Exception("MyMemory daily limit exceeded — cooldown 10s");
             }
             return val;
         }
@@ -332,20 +373,13 @@ public class GoogleTranslateClient {
             chunks.add(currentChunk);
         }
 
-        int threads = Math.min(chunks.size(), 2);
-        ExecutorService pool = Executors.newFixedThreadPool(threads);
-        try {
-            List<CompletableFuture<Void>> futures = new ArrayList<>(chunks.size());
-
-            for (List<Integer> chunkIndices : chunks) {
-                futures.add(CompletableFuture.runAsync(() -> {
-                    processChunk(texts, chunkIndices, results, onItemDone);
-                }, pool));
+        // Process chunks sequentially to eliminate concurrency and rate-limiting
+        for (List<Integer> chunkIndices : chunks) {
+            if (isInCooldown()) {
+                XTranslatorMod.LOGGER.warn("Aborting remaining chunks: API in cooldown");
+                break;
             }
-
-            CompletableFuture.allOf(futures.toArray(new CompletableFuture[0])).join();
-        } finally {
-            pool.shutdown();
+            processChunk(texts, chunkIndices, results, onItemDone);
         }
 
         return Arrays.asList(results);
@@ -359,13 +393,14 @@ public class GoogleTranslateClient {
             } catch (Exception e) {
                 results[idx] = null;
             } finally {
-                if (onItemDone != null) onItemDone.accept(1);
+                if (onItemDone != null && results[idx] != null) onItemDone.accept(1);
             }
             return;
         }
 
         // Attempt combined batch request using delimiter
         boolean success = false;
+        boolean isRateLimited = false;
         try {
             List<FormatProtector.ProtectedResult> protectedList = new ArrayList<>(indices.size());
             StringBuilder combined = new StringBuilder();
@@ -391,12 +426,16 @@ public class GoogleTranslateClient {
                 }
             }
         } catch (Exception e) {
-            XTranslatorMod.LOGGER.debug("Chunk translation failed, falling back to individual: {}", e.getMessage());
+            XTranslatorMod.LOGGER.debug("Chunk translation failed: {}", e.getMessage());
+            if (isInCooldown() || (e.getMessage() != null && e.getMessage().contains("429"))) {
+                isRateLimited = true;
+            }
         }
 
-        // Fallback: Translate individually if chunk splitting failed
-        if (!success) {
+        // Fallback: Translate individually ONLY if chunk splitting failed, NEVER if rate-limited!
+        if (!success && !isRateLimited && !isInCooldown()) {
             for (int idx : indices) {
+                if (isInCooldown()) break;
                 try {
                     results[idx] = translate(texts.get(idx));
                 } catch (Exception e) {

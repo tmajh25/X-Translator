@@ -15,7 +15,7 @@ if %ERRORLEVEL% equ 0 (
     echo.
     echo ============================================
     echo BIEN DICH THANH CONG!
-    echo File mod nam tai: build\libs\xtranslator-1.0.0.jar
+    echo File mod nam tai: build\libs\xtranslator-1.0.1.jar
     echo ============================================
 ) else (
     echo.

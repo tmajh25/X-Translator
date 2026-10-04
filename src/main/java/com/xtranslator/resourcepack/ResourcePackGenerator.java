@@ -35,8 +35,11 @@ public class ResourcePackGenerator {
         }
     }
 
-    private static String getFullLanguageCode(String shortCode) {
-        return switch (shortCode) {
+    public static String getFullLanguageCode(String shortCode) {
+        if (shortCode == null || shortCode.isBlank()) return "en_us";
+        String clean = shortCode.toLowerCase().trim().replace('-', '_');
+        if (clean.contains("_")) return clean;
+        return switch (clean) {
             case "vi" -> "vi_vn";
             case "ru" -> "ru_ru";
             case "zh" -> "zh_cn";
@@ -46,7 +49,26 @@ public class ResourcePackGenerator {
             case "fr" -> "fr_fr";
             case "es" -> "es_es";
             case "pt" -> "pt_br";
-            default -> shortCode + "_" + shortCode;
+            case "it" -> "it_it";
+            case "uk" -> "uk_ua";
+            case "pl" -> "pl_pl";
+            case "th" -> "th_th";
+            case "id" -> "id_id";
+            case "tr" -> "tr_tr";
+            case "cs" -> "cs_cz";
+            case "hu" -> "hu_hu";
+            case "ro" -> "ro_ro";
+            case "ar" -> "ar_sa";
+            case "hi" -> "hi_in";
+            case "nl" -> "nl_nl";
+            case "sv" -> "sv_se";
+            case "da" -> "da_dk";
+            case "fi" -> "fi_fi";
+            case "no", "nb" -> "no_no";
+            case "el" -> "el_gr";
+            case "bg" -> "bg_bg";
+            case "he", "iw" -> "he_il";
+            default -> clean + "_" + clean;
         };
     }
 

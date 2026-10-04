@@ -25,6 +25,11 @@ public class DynamicLanguageWrapper extends Language {
     private static final Set<String> PENDING_KEYS = ConcurrentHashMap.newKeySet();
     private static final Map<String, Long> FAILED_KEYS = new ConcurrentHashMap<>();
 
+    public static void clearState() {
+        PENDING_KEYS.clear();
+        FAILED_KEYS.clear();
+    }
+
     private static boolean isFailedRecently(String key) {
         Long time = FAILED_KEYS.get(key);
         if (time == null) return false;
@@ -75,12 +80,22 @@ public class DynamicLanguageWrapper extends Language {
             return defaultVal;
         }
 
+        if (manager == null) {
+            return defaultVal;
+        }
+
+        String targetLang = manager.getTargetLanguage();
+
+        // 0. If target language matches source language (e.g. en_us), bypass translation completely!
+        if (manager.isSameLanguage(manager.getSourceLanguage(), targetLang)) {
+            return defaultVal;
+        }
+
         // 0. If key is already translated in ANY active pack/mod, NEVER override!
         if (manager.isAlreadyTranslated(key)) {
             return defaultVal;
         }
 
-        String targetLang = manager.getTargetLanguage();
         // If defaultVal is already in the target language (e.g. Vietnamese), NEVER override!
         if (LanguageHelper.isAlreadyInTargetLanguage(defaultVal, targetLang)) {
             return defaultVal;
@@ -205,6 +220,9 @@ public class DynamicLanguageWrapper extends Language {
         if (shouldTranslateLiteral(text)) {
             try {
                 XTranslationManager manager = XTranslationManager.getInstance();
+                if (manager != null && manager.isSameLanguage(manager.getSourceLanguage(), manager.getTargetLanguage())) {
+                    return delegate.getVisualOrder(formattedText);
+                }
                 TranslationService service = manager != null ? manager.getTranslationService() : null;
                 if (service != null) {
                     Map<String, String> cache = service.getTranslationCache();

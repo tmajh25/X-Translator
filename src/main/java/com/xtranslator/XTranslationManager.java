@@ -6,6 +6,9 @@ import com.xtranslator.resourcepack.ResourcePackActivator;
 import com.xtranslator.resourcepack.ResourcePackGenerator;
 import com.xtranslator.scanner.FTBQuestsScanner;
 import com.xtranslator.scanner.LanguageScanner;
+import com.xtranslator.translation.DynamicLanguageWrapper;
+import com.xtranslator.translation.GoogleTranslateClient;
+import com.xtranslator.translation.ScreenPriorityTranslator;
 import com.xtranslator.translation.TranslationService;
 import net.minecraft.client.Minecraft;
 import net.minecraft.server.packs.PackResources;
@@ -24,10 +27,10 @@ public class XTranslationManager {
     private static final AtomicBoolean translationInProgress = new AtomicBoolean(false);
 
     private final Path gameDirectory;
-    private final TranslationService translationService;
-    private final ResourcePackGenerator resourcePackGenerator;
+    private volatile TranslationService translationService;
+    private volatile ResourcePackGenerator resourcePackGenerator;
     private final String sourceLanguage;
-    private final String targetLanguage;
+    private volatile String targetLanguage;
     private final Map<String, String> untranslatedKeysCache = new ConcurrentHashMap<>();
     private final Set<String> existingTargetKeys = ConcurrentHashMap.newKeySet();
 
@@ -153,6 +156,111 @@ public class XTranslationManager {
 
     public static synchronized void resetInstance() {
         instance = null;
+    }
+
+    /**
+     * Checks if in-game or config language changed and updates target language seamlessly.
+     */
+    public static void checkAndUpdateLanguage() {
+        if (instance == null) return;
+        try {
+            String configTarget = ModConfig.TARGET_LANGUAGE.get();
+            String desiredLang;
+            if (configTarget != null && !configTarget.isBlank() && !configTarget.equalsIgnoreCase("auto")) {
+                desiredLang = configTarget.trim().toLowerCase();
+            } else {
+                desiredLang = instance.getMinecraftLanguage();
+            }
+            if (desiredLang != null && !desiredLang.equalsIgnoreCase(instance.getTargetLanguage())) {
+                instance.updateTargetLanguage(desiredLang, false);
+            }
+        } catch (Throwable t) {
+            XTranslatorMod.LOGGER.debug("Error checking language update: {}", t.getMessage());
+        }
+    }
+
+    /**
+     * Updates target language, saves previous cache, switches translation service & resource pack generator,
+     * purges in-flight caches, and indexes missing keys for the new language.
+     *
+     * @param newLanguageCode New target language (e.g. "vi_vn", "ja_jp", "en_us")
+     * @param force True to force re-initialization even if code matches
+     * @return true if language was updated
+     */
+    public synchronized boolean updateTargetLanguage(String newLanguageCode, boolean force) {
+        if (newLanguageCode == null || newLanguageCode.isBlank()) return false;
+        final String newLang = newLanguageCode.trim().toLowerCase();
+
+        if (!force && newLang.equalsIgnoreCase(this.targetLanguage)) {
+            return false;
+        }
+
+        XTranslatorMod.LOGGER.info("XTranslator switching target language from '{}' to '{}'", this.targetLanguage, newLang);
+
+        // 1. Save old cache synchronously before switching
+        if (this.translationService != null) {
+            try {
+                this.translationService.saveCacheSync();
+            } catch (Throwable t) {
+                XTranslatorMod.LOGGER.debug("Failed saving cache during language switch: {}", t.getMessage());
+            }
+        }
+
+        // 2. Update targetLanguage
+        this.targetLanguage = newLang;
+        TranslationProgress.setTargetLanguage(newLang);
+
+        // 3. Clear temporary runtime caches and pending queues
+        untranslatedKeysCache.clear();
+        existingTargetKeys.clear();
+        DynamicLanguageWrapper.clearState();
+        ScreenPriorityTranslator.clearState();
+
+        // 4. If same language (e.g. target is English 'en_us' and source is 'auto'/'en_us'), no translator needed
+        if (isSameLanguage(sourceLanguage, targetLanguage)) {
+            XTranslatorMod.LOGGER.info("Target language '{}' matches source language '{}'. Live translation bypassed.", targetLanguage, sourceLanguage);
+            String langName = TranslationProgress.getLanguageDisplayName(targetLanguage);
+            TranslationProgress.sendChatMessage("§a[XTranslator] §fNgôn ngữ trò chơi: §e" + langName + " §7(" + targetLanguage + ") §f— Đã tắt can thiệp dịch (cùng ngôn ngữ gốc).");
+            return true;
+        }
+
+        // 5. Initialize new TranslationService with separate cache file for this language
+        String shortSource = sourceLanguage.contains("_") ? sourceLanguage.split("_")[0] : sourceLanguage;
+        String shortTarget = GoogleTranslateClient.normalizeLangCode(targetLanguage);
+        int delayMs = ModConfig.TRANSLATION_DELAY_MS.get();
+        Path cacheDir = gameDirectory.resolve("xtranslator");
+
+        try {
+            this.translationService = new TranslationService(shortSource, shortTarget, cacheDir, delayMs);
+            XTranslatorMod.LOGGER.info("Translation service re-initialized for {} -> {}", shortSource, shortTarget);
+        } catch (Exception e) {
+            XTranslatorMod.LOGGER.error("Failed to re-initialize translation service for {}: {}", targetLanguage, e.getMessage());
+        }
+
+        // 6. Re-create resource pack generator
+        this.resourcePackGenerator = new ResourcePackGenerator(gameDirectory, targetLanguage);
+
+        // 7. Notify player
+        String langName = TranslationProgress.getLanguageDisplayName(targetLanguage);
+        TranslationProgress.sendChatMessage("§a[XTranslator] §fĐã chuyển ngôn ngữ dịch sang: §e" + langName + " §7(" + targetLanguage + ")");
+
+        // 8. Re-index missing translation keys in background for this new language
+        Thread indexThread = new Thread(() -> {
+            try {
+                Thread.sleep(600);
+                Map<String, Map<String, String>> missing = scanMissingTranslations();
+                for (Map<String, String> map : missing.values()) {
+                    untranslatedKeysCache.putAll(map);
+                }
+                XTranslatorMod.LOGGER.info("XTranslator successfully indexed {} untranslated keys for '{}'", untranslatedKeysCache.size(), targetLanguage);
+            } catch (Exception e) {
+                XTranslatorMod.LOGGER.debug("Error during background re-indexing for {}: {}", targetLanguage, e.getMessage());
+            }
+        }, "XTranslator-LiveIndexer");
+        indexThread.setDaemon(true);
+        indexThread.start();
+
+        return true;
     }
 
     /**
@@ -505,7 +613,7 @@ public class XTranslationManager {
         return translationInProgress.get();
     }
 
-    private boolean isSameLanguage(String source, String target) {
+    public static boolean isSameLanguage(String source, String target) {
         if (source == null || target == null) return false;
         if (target.equalsIgnoreCase(source)) return true;
         if ("auto".equalsIgnoreCase(source)) {

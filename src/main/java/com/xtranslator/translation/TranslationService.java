@@ -118,41 +118,13 @@ public class TranslationService {
             batches.add(entries.subList(i, Math.min(i + BATCH_SIZE, entries.size())));
         }
 
-        XTranslatorMod.LOGGER.info("Processing {} entries in {} batches using {} threads",
-                entries.size(), batches.size(), THREAD_POOL_SIZE);
+        XTranslatorMod.LOGGER.info("Processing {} entries in {} batches sequentially",
+                entries.size(), batches.size());
 
-        // Process batches in parallel
-        ExecutorService executor = Executors.newFixedThreadPool(THREAD_POOL_SIZE);
-        try {
-            List<Future<Map<String, String>>> futures = new ArrayList<>();
-
-            for (int i = 0; i < batches.size(); i++) {
-                final int batchIndex = i;
-                final List<Map.Entry<String, String>> batch = batches.get(i);
-
-                futures.add(executor.submit(() -> {
-                    return processBatch(batch, batchIndex + 1, batches.size(), progressCallback);
-                }));
-            }
-
-            // Collect results
-            for (Future<Map<String, String>> future : futures) {
-                try {
-                    Map<String, String> batchResults = future.get();
-                    results.putAll(batchResults);
-                    translationCache.putAll(batchResults);
-                } catch (Exception e) {
-                    XTranslatorMod.LOGGER.error("Batch translation failed", e);
-                }
-            }
-        } finally {
-            executor.shutdown();
-            try {
-                executor.awaitTermination(5, TimeUnit.MINUTES);
-            } catch (InterruptedException e) {
-                XTranslatorMod.LOGGER.error("Translation service interrupted", e);
-                Thread.currentThread().interrupt();
-            }
+        for (int i = 0; i < batches.size(); i++) {
+            Map<String, String> batchResults = processBatch(batches.get(i), i + 1, batches.size(), progressCallback);
+            results.putAll(batchResults);
+            translationCache.putAll(batchResults);
         }
 
         return results;

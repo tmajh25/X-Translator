@@ -60,7 +60,7 @@ File cấu hình: `config/xtranslator-client.toml`
 ## Cài đặt
 
 1. Yêu cầu **Minecraft 1.21** chạy **NeoForge** (khuyến nghị `21.0.167` trở lên).
-2. Đặt file `xtranslator-1.0.0.jar` vào thư mục `.minecraft/mods/`.
+2. Đặt file `xtranslator-1.0.1.jar` vào thư mục `.minecraft/mods/`.
 3. Vào game, chọn ngôn ngữ **Tiếng Việt** trong cài đặt Minecraft.
 4. Bản dịch được tự động lưu vào Resource Pack: `.minecraft/resourcepacks/XTranslator-Pack/`.
 

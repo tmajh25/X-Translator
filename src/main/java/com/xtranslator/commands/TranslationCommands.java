@@ -103,6 +103,32 @@ public class TranslationCommands {
                         .then(Commands.literal("on").executes(ctx -> setAuto(ctx, true)))
                         .then(Commands.literal("off").executes(ctx -> setAuto(ctx, false)))
                         .executes(TranslationCommands::toggleAuto))
+                    .then(Commands.literal("lang")
+                        .then(Commands.argument("language", StringArgumentType.string())
+                            .suggests((context, builder) -> {
+                                String typed = builder.getRemaining().toLowerCase();
+                                for (String lang : new String[]{"auto", "vi_vn", "en_us", "ja_jp", "zh_cn", "zh_tw", "ru_ru", "fr_fr", "de_de", "es_es", "ko_kr", "th_th", "pt_br", "it_it", "uk_ua", "pl_pl", "tr_tr"}) {
+                                    if (lang.startsWith(typed)) {
+                                        builder.suggest(lang);
+                                    }
+                                }
+                                return builder.buildFuture();
+                            })
+                            .executes(TranslationCommands::setLanguage))
+                        .executes(TranslationCommands::getLanguage))
+                    .then(Commands.literal("target")
+                        .then(Commands.argument("language", StringArgumentType.string())
+                            .suggests((context, builder) -> {
+                                String typed = builder.getRemaining().toLowerCase();
+                                for (String lang : new String[]{"auto", "vi_vn", "en_us", "ja_jp", "zh_cn", "zh_tw", "ru_ru", "fr_fr", "de_de", "es_es", "ko_kr", "th_th", "pt_br", "it_it", "uk_ua", "pl_pl", "tr_tr"}) {
+                                    if (lang.startsWith(typed)) {
+                                        builder.suggest(lang);
+                                    }
+                                }
+                                return builder.buildFuture();
+                            })
+                            .executes(TranslationCommands::setLanguage))
+                        .executes(TranslationCommands::getLanguage))
                     .then(Commands.literal("help")
                         .executes(TranslationCommands::help))
                     .executes(TranslationCommands::help)
@@ -286,12 +312,41 @@ public class TranslationCommands {
         return 1;
     }
 
+    private static int getLanguage(CommandContext<CommandSourceStack> context) {
+        Minecraft.getInstance().execute(() -> {
+            XTranslationManager manager = XTranslationManager.getInstance();
+            String current = manager.getTargetLanguage();
+            String displayName = TranslationProgress.getLanguageDisplayName(current);
+            String cfg = ModConfig.TARGET_LANGUAGE.get();
+            TranslationProgress.sendChatMessage("§a[XTranslator] §fNgôn ngữ mục tiêu hiện tại: §e" + displayName + " §7(" + current + ") §f[Config: §b" + cfg + "§f]");
+            TranslationProgress.sendChatMessage("§7Để đổi ngôn ngữ: §e/xtrans lang <mã_ngôn_ngữ> §7hoặc §e/xtrans lang auto");
+        });
+        return 1;
+    }
+
+    private static int setLanguage(CommandContext<CommandSourceStack> context) {
+        String langArg = StringArgumentType.getString(context, "language").trim().toLowerCase();
+        Minecraft.getInstance().execute(() -> {
+            XTranslationManager manager = XTranslationManager.getInstance();
+            if ("auto".equalsIgnoreCase(langArg)) {
+                ModConfig.TARGET_LANGUAGE.set("auto");
+                XTranslationManager.checkAndUpdateLanguage();
+                TranslationProgress.sendChatMessage("§a[XTranslator] §fĐã đặt ngôn ngữ mục tiêu về chế độ §bAUTO §f(tự đồng bộ theo cài đặt Minecraft).");
+            } else {
+                ModConfig.TARGET_LANGUAGE.set(langArg);
+                manager.updateTargetLanguage(langArg, true);
+            }
+        });
+        return 1;
+    }
+
     private static int help(CommandContext<CommandSourceStack> context) {
         context.getSource().sendSuccess(() -> Component.literal("")
                 .append(Component.translatable("xtranslator.cmd.help.header"))
                 .append("\n").append(Component.translatable("xtranslator.cmd.help.screen"))
                 .append("\n").append(Component.translatable("xtranslator.cmd.help.mod"))
                 .append("\n").append(Component.translatable("xtranslator.cmd.help.full"))
+                .append("\n").append("§e/xtrans lang [mã|auto] §7- Xem hoặc đổi nhanh ngôn ngữ dịch (vd: vi_vn, ja_jp, en_us...)")
                 .append("\n").append("§e/xtrans auto <on|off> §7- Bật/tắt tự động dịch ngầm khi rê chuột")
                 .append("\n").append(Component.translatable("xtranslator.cmd.help.status"))
                 .append("\n").append(Component.translatable("xtranslator.cmd.help.clear"))

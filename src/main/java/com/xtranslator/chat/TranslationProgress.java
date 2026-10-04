@@ -34,20 +34,33 @@ public class TranslationProgress {
         if (code == null || code.isBlank()) return "Không rõ";
         String clean = code.toLowerCase().trim();
         switch (clean) {
-            case "vi_vn": return "Tiếng Việt";
+            case "vi_vn": case "vi": return "Tiếng Việt";
             case "en_us": return "English (US)";
             case "en_gb": return "English (UK)";
+            case "en": return "English";
             case "zh_cn": return "简体中文 (Chinese)";
             case "zh_tw": return "繁體中文 (Traditional Chinese)";
-            case "ja_jp": return "日本語 (Japanese)";
-            case "ko_kr": return "한국어 (Korean)";
-            case "ru_ru": return "Русский (Russian)";
-            case "fr_fr": return "Français (French)";
-            case "de_de": return "Deutsch (German)";
-            case "es_es": return "Español (Spanish)";
-            case "pt_br": return "Português (Brasil)";
-            case "th_th": return "ไทย (Thai)";
-            case "id_id": return "Bahasa Indonesia";
+            case "ja_jp": case "ja": return "日本語 (Japanese)";
+            case "ko_kr": case "ko": return "한국어 (Korean)";
+            case "ru_ru": case "ru": return "Русский (Russian)";
+            case "uk_ua": case "uk": return "Українська (Ukrainian)";
+            case "fr_fr": case "fr": return "Français (French)";
+            case "de_de": case "de": return "Deutsch (German)";
+            case "es_es": case "es": return "Español (Spanish)";
+            case "pt_br": case "pt": return "Português (Brasil)";
+            case "it_it": case "it": return "Italiano (Italian)";
+            case "pl_pl": case "pl": return "Polski (Polish)";
+            case "th_th": case "th": return "ไทย (Thai)";
+            case "id_id": case "id": return "Bahasa Indonesia";
+            case "tr_tr": case "tr": return "Türkçe (Turkish)";
+            case "cs_cz": case "cs": return "Čeština (Czech)";
+            case "hu_hu": case "hu": return "Magyar (Hungarian)";
+            case "ro_ro": case "ro": return "Română (Romanian)";
+            case "ar_sa": case "ar": return "العربية (Arabic)";
+            case "hi_in": case "hi": return "हिन्दी (Hindi)";
+            case "nl_nl": case "nl": return "Nederlands (Dutch)";
+            case "sv_se": case "sv": return "Svenska (Swedish)";
+            case "el_gr": case "el": return "Ελληνικά (Greek)";
             default: return clean.toUpperCase();
         }
     }
@@ -59,16 +72,24 @@ public class TranslationProgress {
         if (code == null || code.isBlank()) return "";
         String clean = code.toLowerCase().trim();
         switch (clean) {
-            case "vi_vn": return "Tiếng Việt";
-            case "en_us": return "English";
+            case "vi_vn": case "vi": return "Tiếng Việt";
+            case "en_us": case "en_gb": case "en": return "English";
             case "zh_cn": return "中文";
-            case "ja_jp": return "日本語";
-            case "ko_kr": return "한국어";
-            case "ru_ru": return "Русский";
-            case "fr_fr": return "Français";
-            case "de_de": return "Deutsch";
-            case "es_es": return "Español";
-            case "pt_br": return "Português";
+            case "zh_tw": return "繁中";
+            case "ja_jp": case "ja": return "日本語";
+            case "ko_kr": case "ko": return "한국어";
+            case "ru_ru": case "ru": return "Русский";
+            case "uk_ua": case "uk": return "Українська";
+            case "fr_fr": case "fr": return "Français";
+            case "de_de": case "de": return "Deutsch";
+            case "es_es": case "es": return "Español";
+            case "pt_br": case "pt": return "Português";
+            case "it_it": case "it": return "Italiano";
+            case "pl_pl": case "pl": return "Polski";
+            case "th_th": case "th": return "ไทย";
+            case "id_id": case "id": return "Indonesia";
+            case "tr_tr": case "tr": return "Türkçe";
+            case "cs_cz": case "cs": return "Čeština";
             default: return clean.toUpperCase();
         }
     }
